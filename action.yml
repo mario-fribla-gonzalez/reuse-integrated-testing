@@ -1,0 +1,172 @@
+name: "Integrated Testing Action"
+description: "Github Action for Integrated Testing."
+author: "Devops Mario Fribla Gonzalez"
+inputs:
+  package-name:
+    type: string
+    description: "Nombre del Package."
+    required: true
+  deployment-name:
+    type: string
+    description: "Nombre del Deploy."
+    required: true
+  repo-first-name:
+    type: string
+    description: "Valores:co, test.Default: test"
+    required: false
+    default: "test"
+  repo-qa-testing:
+    type: string
+    description: "Repositorio Origen del Area QA donde Alojan las Pruebas Integradas."
+    required: false
+    default: "github.com/mario-fribla-gonzalez/test-integracion-pruebas.git"
+  reportype:
+    type: string
+    required: false
+    default: "htmlextra"
+  runjavaselenium:
+    description: "Parametro Anula Ejecucion Java/Selenium. Default: false"
+    type: boolean    
+    required: false
+    default: false
+  runjmeter:
+    description: "Parametro Anula Ejecucion JMeter. Default: false"
+    type: boolean    
+    required: false
+    default: false
+  runpostman:
+    description: "Parametro Anula Ejecucion Postman/Newman. Default: false"
+    type: boolean    
+    required: false
+    default: false
+  runseleniumide:
+    description: "Parametro Anula Ejecucion Selenium/IDE. Default: false"
+    required: false
+    type: boolean    
+    default: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: '0) Validacion Parametros.'
+      shell: powershell
+      run: |
+        Write-Host "package-name    : ${{ inputs.package-name }}"
+        Write-Host "deployment-name : ${{ inputs.deployment-name }}"
+        Write-Host "repo-first-name:  ${{ inputs.repo-first-name }}"
+        Write-Host "repo-qa-testing : ${{ inputs.repo-qa-testing }}"
+        Write-Host "reportype       : ${{ inputs.reportype }}" 
+        Write-Host "runpostman      : ${{ inputs.runpostman }}" 
+        Write-Host "runjavaselenium : ${{ inputs.runjavaselenium }}" 
+        Write-Host "runseleniumide  : ${{ inputs.runseleniumide }}" 
+        Write-Host "runjmeter       : ${{ inputs.runjmeter }}"         
+        Write-Host "repo-qa-testing : ${{ inputs.repo-qa-testing }}" 
+        exit 0   
+
+    - name: '1) Checkout del Repositorio de QA.(mario-fribla-gonzalez)'
+      if: ${{ github.repository_owner != 'mario-fribla-gonzalez' }}
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+        ref: ${{ github.event.pull_request.head.sha || github.ref }}
+
+    - name:  '1) Checkout del Repositorio de QA/CO.(mario-fribla-gonzalez)'
+      shell: powershell
+      if: ${{ github.repository_owner == 'mario-fribla-gonzalez' }}
+      run: |
+        try {
+            git clone https://github.com/mario-fribla-gonzalez/integrated-testing.git
+            $diractual = (Get-Location).path
+            Write-Host "Directorio Path..: $diractual" 
+            $dirmove   = $diractual + "\" + "integrated-testing\*"
+            Write-Host "Directorio Move..: $dirmove" 
+            Move-Item -Path $dirmove -Destination $diractual
+        }
+        catch {
+            Write-Output "ERROR(GitClone integrated-testing): No se logro Clonar o Mover Contenido Directorio..."
+        }
+
+    - name: '2) Ejecutar Download Branch Git Checkout.'
+      if: ${{ inputs.runjavaselenium == 'true' || inputs.runjmeter == 'true' || inputs.runpostman == 'true' || inputs.runseleniumide == 'true' || inputs.runsqlevidence == 'true' }}
+      shell: powershell
+      run: |
+        $prefijorepo       = "${{ inputs.repo-first-name }}"
+        $rama              = "$prefijorepo/" + "${{ inputs.deployment-name }}"
+        $repositoriogithub = "${{ inputs.repo-qa-testing }}"
+        echo "Nombre Rama (Branch): $rama - Repositorio: $repositoriogithub "
+        $TmpToken          = "${{ secrets.PERSONAL_ACCESS_TOKEN }}"
+        ./githubcloneqa.ps1 -ParampackageName       $rama `
+                            -ParamDeploymentName    "${{ inputs.deployment-name }}" `
+                            -ParamTokenRepositorio  $TmpToken `
+                            -ParamRepositorioGithub $repositoriogithub
+        git branch -r -v -a 
+        echo "Lista de Branch"
+        git branch -r -v -a 
+        exit 0
+
+    - name: '3) Ejecutar Pruebas Integradas de QA - JAVA SELENIUM.'
+      if: ${{ inputs.runjavaselenium == 'true' }}
+      shell: powershell
+      run: |
+        Write-Host "Ejecutando Java Selenium ..."
+        ./javaselenium.ps1 -ParampackageName    "${{ inputs.package-name }}" `
+                           -ParamDeploymentName "${{ inputs.deployment-name }}"
+        exit 0 
+
+    - name: '4) Ejecutar Pruebas Integradas de QA - JMETER.'
+      if: ${{ inputs.runjmeter == 'true' }}
+      shell: powershell
+      run: |
+        Write-Host "Ejecutando JMETER ..."
+        ./jmeter.ps1 -ParampackageName    "${{ inputs.package-name }}" `
+                     -ParamDeploymentName "${{ inputs.deployment-name }}" 
+        exit 0 
+
+    - name: '5) Ejecutar Pruebas Integradas de QA - POSTMAN.'
+      if: ${{ inputs.runpostman == 'true' }}
+      shell: powershell
+      run: |
+        Write-Host "Ejecutando Postman/Newman ..."
+        ./postman.ps1 -ParampackageName    "${{ inputs.package-name }}" `
+                      -ParamDeploymentName "${{ inputs.deployment-name }}" `
+                      -ParamReportType     "${{ inputs.reportype }}" 
+        exit 0 
+
+    - name: '6) Ejecutar Pruebas Integradas de QA - SELENIUM IDE.'
+      if: ${{ inputs.runseleniumide == 'true' }}
+      shell: powershell
+      run: |
+        Write-Host "Ejecutando Selenium IDE ..."
+        ./seleniumide.ps1 -ParampackageName    "${{ inputs.package-name }}" `
+                          -ParamDeploymentName "${{ inputs.deployment-name }}" 
+        exit 0 
+
+    - name: '8) Ejecutar Git Push Branch'
+      if: ${{ inputs.runjavaselenium == 'true' || inputs.runjmeter == 'true' || inputs.runpostman == 'true' || inputs.runseleniumide == 'true' || inputs.runsqlevidence == 'true' }}
+      shell: powershell
+      run: |
+        $prefijorepo       = "${{ inputs.repo-first-name }}"
+        $rama              = "$prefijorepo/" + "${{ inputs.deployment-name }}"
+        echo "Nombre Rama (Branch): $rama"
+        ./githubpushqa.ps1 -ParampackageName    $rama `
+                           -ParamDeploymentName "${{ inputs.deployment-name }}" `
+        exit 0
+
+    - name: '9) Elimina WorkSpace Runner'
+      if: always()
+      shell: powershell
+      run: |
+        try {
+            Remove-Item -Path ${{ github.workspace }}\* -Recurse -Force
+        }
+        catch {
+            Write-Output "ERROR: La limpieza falló o no hay archivos para eliminar..."
+        }
+        try {
+            Remove-Item -Path ${{ github.workspace }}\.\.?* -Recurse -Force
+        }
+        catch {
+            Write-Output "ERROR: Al limpiar archivos ocultos..."
+        }
+        exit 0
