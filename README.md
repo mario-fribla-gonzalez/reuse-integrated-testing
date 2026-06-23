@@ -70,4 +70,6 @@ pip install webdriver-manager
 ```
 
 ---
-Devops Mario Fribla Gonzalez
+Mario Fribla
+
+***DevOps***

@@ -19,7 +19,7 @@ inputs:
     type: string
     description: "Repositorio Origen del Area QA donde Alojan las Pruebas Integradas."
     required: false
-    default: "github.com/mario-fribla-gonzalez/test-integracion-pruebas.git"
+    default: "github.com/mario-fribla-gonzalez/wkf-test-integracion-pruebas.git"
   reportype:
     type: string
     required: false
@@ -76,7 +76,7 @@ runs:
       if: ${{ github.repository_owner == 'mario-fribla-gonzalez' }}
       run: |
         try {
-            git clone https://github.com/mario-fribla-gonzalez/integrated-testing.git
+            git clone https://github.com/mario-fribla-gonzalez/reuse-integrated-testing.git
             $diractual = (Get-Location).path
             Write-Host "Directorio Path..: $diractual" 
             $dirmove   = $diractual + "\" + "integrated-testing\*"
